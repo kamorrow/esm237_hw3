@@ -1,0 +1,18 @@
+---
+title: 'Homework #3'
+author: "Keene Morrow, Madeline Oliver, & Minerva Ringland"
+date: "5/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(lubridate)
+library(chron)
+library(stringr)
+```
+
