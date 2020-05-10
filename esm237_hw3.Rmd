@@ -16,3 +16,32 @@ library(chron)
 library(stringr)
 ```
 
+
+
+Variables needed:
+t_air - air temperature (in celsius)
+t_d - dew point temperature (in celsius)
+rh - relative humidity (%)
+
+"Daily mean and daily maximum temperatures have been used to calculate a corresponding daily mean and daily maximum apparent temperature."
+
+Variables derived:
+
+1. Apparent temperature (at)
+at = (-2.653 + 0.994) * (t_air + 0.0153) * (t_d)^2
+
+
+2. Humidex (hx)
+
+2.a. vapor pressure of water v (in hPa)
+
+v = (6.112 × 10ˆ(7.5 * t_air/(237.7 + t_air)) * rh/100) 
+
+2.b. humidex
+hx = t_air + (v-10) * (5/9)
+
+
+
+"A Humidex of less than 29 means no discomfort; 30 to 39 some discomfort; 40 to 45 great discomfort and avoid exertion; and above 45 is dangerous, heat stroke is possible." 
+
+
