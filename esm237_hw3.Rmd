@@ -5,9 +5,12 @@ date: "5/13/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE)
+```
 
+
+```{r}
 library(tidyverse)
 library(here)
 library(janitor)
@@ -35,7 +38,13 @@ data <- raw_data %>%
           t_d_max = 243.04*(log(rh_max_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_max_pct/100)-((17.625*T)/(243.04+T))),
 # calculate apparent temperatures
          at_min = -2.653 + (0.994 * t_min_c) + (0.0153 * (t_d_min)^2), 
-         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2))
+         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2),
+# calculate vapor pressure of water in hPa
+         v_min = (6.112*10^{(7.5*t_min_c)/(237.7 + t_min_c)} * rh_min_pct/100),
+         v_max = (6.112 * 10^{(7.5*t_max_c)/(237.7 + t_max_c)} * rh_max_pct/100),
+# calculate humidex
+         hx_min = t_min_c + ((v_min-10)*(5/9)),
+         hx_max = t_max_c + ((v_max-10)*(5/9)))
 
 ```
 
@@ -51,12 +60,11 @@ rh - relative humidity (%)
 Variables derived:
 
 1. Dew point temperature
-The following formula was proposed in a 2005 article by Mark G. Lawrence in the Bulletin of the American Meteorological Society:
+Using the formula from http://bmcnoldy.rsmas.miami.edu/Humidity.html:
+TD: =243.04*(LN(RH/100)+((17.625*T)/(243.04+T)))/(17.625-LN(RH/100)-((17.625*T)/(243.04+T)))
 
-t_d = t - ((100 - rh)/5.)
-
-where t_d is dew point temperature (in degrees Celsius), t is observed temperature (in degrees Celsius), and rh is relative humidity (in percent). Apparently this relationship is fairly accurate for relative humidity values above 50%.
-
+Reference:
+Alduchov, O. A., and R. E. Eskridge, 1996: Improved Magnus' form approximation of saturation vapor pressure. J. Appl. Meteor., 35, 601–609.
 
 
 2. Apparent temperature (at)
@@ -75,5 +83,169 @@ hx = t_air + (v-10) * (5/9)
 
 
 "A Humidex of less than 29 means no discomfort; 30 to 39 some discomfort; 40 to 45 great discomfort and avoid exertion; and above 45 is dangerous, heat stroke is possible." 
+
+
+Both #2 and #3 equations are from https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0180369.s005&type=supplementary
+
+
+```{r}
+# Find the number of days per year where humidex is over 45
+
+hx_45 <- data %>%
+  select(time, hx_max) %>%
+  group_by(year(time)) %>%
+  filter(hx_max > 45) 
+
+hx_45_count <- hx_45 %>%
+  count() %>%
+  ungroup() %>%
+  rename(year = "year(time)")
+
+ggplot(hx_45_count, 
+       aes(x = year,
+       y = n)) +
+  geom_point(color = "orangered") +
+  geom_smooth(method = "lm",
+              color = "darkolivegreen") +
+  labs(x = "Year (from 2006-2100)",
+       y = "Number of days per year where humidex is over 45",
+       title = "Projeted annual extreme humidex days in Los Angeles") +
+  theme_light()+
+  theme(legend.position = "none",
+        text=element_text(size= 12,
+                          family = "Times"))+
+  theme(plot.title = element_text(
+    family ="Times", 
+    face="bold", 
+    size=12))
+
+res_hx_45 = lm(n~year,
+         data = hx_45_count)
+summary_hx_45 = summary(hx_45_count)
+confidence_hx_45 = confint(res_hx_45, 
+        "year",
+        level = 0.95)
+res_hx_45
+summary_hx_45
+confidence_hx_45
+  
+```
+
+```{r}
+# Find the number of days per year where humidex is between 40-45
+
+hx_40 <- data %>%
+  select(time, hx_max) %>%
+  group_by(year(time)) %>%
+  filter(hx_max > 39) %>%
+  filter(hx_max < 46)
+
+hx_40_count <- hx_40 %>%
+  count() %>%
+  ungroup() %>%
+  rename(year = "year(time)")
+
+ggplot(hx_40_count, 
+       aes(x = year,
+       y = n)) +
+  geom_point(color = "orange") +
+  geom_smooth(method = "lm",
+              color = "darkolivegreen") +
+  labs(x = "Year (from 2006-2100)",
+       y = "Number of days per year where humidex is between 40 and 45",
+       title = "Projeted annual humidex days within the great discomfort range in Los Angeles") +
+  theme_light()+
+  theme(legend.position = "none",
+        text=element_text(size= 12,
+                          family = "Times"))+
+  theme(plot.title = element_text(
+    family ="Times", 
+    face="bold", 
+    size=12))
+
+res_hx_40 = lm(n~year,
+         data = hx_40_count)
+summary_hx_40 = summary(hx_40_count)
+confidence_hx_40 = confint(res_hx_40, 
+        "year",
+        level = 0.95)
+res_hx_40
+summary_hx_40
+confidence_hx_40
+  
+```
+```{r}
+# Find the number of days per year where humidex is between 40-45
+
+hx_30 <- data %>%
+  select(time, hx_max) %>%
+  group_by(year(time)) %>%
+  filter(hx_max > 29) %>%
+  filter(hx_max < 40)
+
+hx_30_count <- hx_30 %>%
+  count() %>%
+  ungroup() %>%
+  rename(year = "year(time)")
+
+ggplot(hx_30_count, 
+       aes(x = year,
+       y = n)) +
+  geom_point(color = "orange") +
+  geom_smooth(method = "lm",
+              color = "darkolivegreen") +
+  labs(x = "Year (from 2006-2100)",
+       y = "Number of days per year where humidex is between 30 and 39",
+       title = "Projeted annual humidex days within the discomfort range in Los Angeles") +
+  theme_light()+
+  theme(legend.position = "none",
+        text=element_text(size= 12,
+                          family = "Times"))+
+  theme(plot.title = element_text(
+    family ="Times", 
+    face="bold", 
+    size=12))
+
+res_hx_40 = lm(n~year,
+         data = hx_40_count)
+summary_hx_40 = summary(hx_40_count)
+confidence_hx_40 = confint(res_hx_40, 
+        "year",
+        level = 0.95)
+res_hx_40
+summary_hx_40
+confidence_hx_40
+  
+```
+
+
+```{r}
+# Graph change in average humidex over time
+# 
+# hx <- data %>%
+#   select(time, hx_max) %>%
+#   filter(time)
+# 
+# ggplot(hx, 
+#        aes(x = time,
+#        y = hx_max)) +
+#   geom_point(color = "orange") +
+#   geom_smooth(method = "lm",
+#               color = "darkolivegreen") +
+#   labs(x = "Year (from 2006-2100)",
+#        y = "Number of days per year where humidex is between 30 and 39",
+#        title = "Projeted annual humidex days within the discomfort range in Los Angeles") +
+#   theme_light()+
+#   theme(legend.position = "none",
+#         text=element_text(size= 12,
+#                           family = "Times"))+
+#   theme(plot.title = element_text(
+#     family ="Times", 
+#     face="bold", 
+#     size=12))
+
+
+
+```
 
 
