@@ -220,13 +220,15 @@ confidence_hx_40
 
 
 ```{r}
-# Graph change in average humidex over time
+# Graph change in  max annual humidex over time
 # 
 # hx <- data %>%
 #   select(time, hx_max) %>%
-#   filter(time)
+#   group_by(year(time()), hx_max) %>%
+#  filter(hx_max == max(hx_max)) %>%
+#   ungroup()
 # 
-# ggplot(hx, 
+# ggplot(hx,
 #        aes(x = time,
 #        y = hx_max)) +
 #   geom_point(color = "orange") +
@@ -240,11 +242,11 @@ confidence_hx_40
 #         text=element_text(size= 12,
 #                           family = "Times"))+
 #   theme(plot.title = element_text(
-#     family ="Times", 
-#     face="bold", 
+#     family ="Times",
+#     face="bold",
 #     size=12))
-
-
+# 
+# 
 
 ```
 
