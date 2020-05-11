@@ -17,6 +17,29 @@ library(stringr)
 ```
 
 
+```{r}
+raw_data <- read_csv("data_daily_CNRM-CM5_rcp45.csv")
+
+data <- raw_data %>%
+  rename(rh_max_pct = `relhumid-max_day_CNRM-CM5_rcp45`, # rename for ease 
+         rh_min_pct = `relhumid-min_day_CNRM-CM5_rcp45`,
+         t_max_k = `tasmax_day_CNRM-CM5_rcp45`,
+         t_min_k = `tasmin_day_CNRM-CM5_rcp45`) %>%
+# convert temps to celsius  
+  mutate(t_min_c = t_min_k-273, 
+         t_max_c = t_max_k-273,
+#calculate max and min dew point temperatures         
+         # t_d_min = t_min_c - (100 - (rh_min_pct/5)), 
+         # t_d_max = t_max_c - (100 - (rh_max_pct/5)),
+          t_d_min = 243.04*(log(rh_min_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_min_pct/100)-((17.625*T)/(243.04+T))),
+          t_d_max = 243.04*(log(rh_max_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_max_pct/100)-((17.625*T)/(243.04+T))),
+# calculate apparent temperatures
+         at_min = -2.653 + (0.994 * t_min_c) + (0.0153 * (t_d_min)^2), 
+         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2))
+
+```
+
+
 
 Variables needed:
 t_air - air temperature (in celsius)
@@ -27,17 +50,26 @@ rh - relative humidity (%)
 
 Variables derived:
 
-1. Apparent temperature (at)
-at = (-2.653 + 0.994) * (t_air + 0.0153) * (t_d)^2
+1. Dew point temperature
+The following formula was proposed in a 2005 article by Mark G. Lawrence in the Bulletin of the American Meteorological Society:
+
+t_d = t - ((100 - rh)/5.)
+
+where t_d is dew point temperature (in degrees Celsius), t is observed temperature (in degrees Celsius), and rh is relative humidity (in percent). Apparently this relationship is fairly accurate for relative humidity values above 50%.
 
 
-2. Humidex (hx)
 
-2.a. vapor pressure of water v (in hPa)
+2. Apparent temperature (at)
+at = -2.653 + (0.994 * t_air) + (0.0153 * (t_d)^2)
+
+
+3. Humidex (hx)
+
+3.a. vapor pressure of water v (in hPa)
 
 v = (6.112 × 10ˆ(7.5 * t_air/(237.7 + t_air)) * rh/100) 
 
-2.b. humidex
+3.b. humidex
 hx = t_air + (v-10) * (5/9)
 
 
