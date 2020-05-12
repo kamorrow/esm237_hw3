@@ -19,34 +19,14 @@ library(chron)
 library(stringr)
 ```
 
+Humans have evolved adaptive mechanisms that allow us to conditions of extreme heat. Sweat, for example, absorbs heat energy and evaporates from our skin, creating a cooling feedback effect. However, at a certain temperature and/or humidity level - when it becomes too humid to effectively sweat - even the fittest human body will succumb to heat stress.  The implications of rising global average temperatures for mortality, as a function of temperature and humidity, are troubling. Even if temperatures in a location do not significantly increase, already-hot countries may experience dangerous increases in humidity, since models predict that Hadley cells will broaden and shift storms poleward??
 
-```{r}
-raw_data <- read_csv("data_daily_CNRM-CM5_rcp45.csv")
+This system further merits attention as a matter of environmental justice. On a global scale, the countries most at risk of increasing extreme heat-based mortality are developing nations without the resources or infrastructure to develop adaptive measures. (There is also the unfortunate paradox that cooling technology is energy-intensive and often relies on fossil fuels, further contributing to GHG emissions and exacerbating the root cause of rising temperatures.) On a more local scale, individuals most at risk are those who perform strenuous activities, work outdoors, cannot afford air conditioning, are homeless, etc.
 
-data <- raw_data %>%
-  rename(rh_max_pct = `relhumid-max_day_CNRM-CM5_rcp45`, # rename for ease 
-         rh_min_pct = `relhumid-min_day_CNRM-CM5_rcp45`,
-         t_max_k = `tasmax_day_CNRM-CM5_rcp45`,
-         t_min_k = `tasmin_day_CNRM-CM5_rcp45`) %>%
-# convert temps to celsius  
-  mutate(t_min_c = t_min_k-273, 
-         t_max_c = t_max_k-273,
-#calculate max and min dew point temperatures         
-         # t_d_min = t_min_c - (100 - (rh_min_pct/5)), 
-         # t_d_max = t_max_c - (100 - (rh_max_pct/5)),
-          t_d_min = 243.04*(log(rh_min_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_min_pct/100)-((17.625*T)/(243.04+T))),
-          t_d_max = 243.04*(log(rh_max_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_max_pct/100)-((17.625*T)/(243.04+T))),
-# calculate apparent temperatures
-         at_min = -2.653 + (0.994 * t_min_c) + (0.0153 * (t_d_min)^2), 
-         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2),
-# calculate vapor pressure of water in hPa
-         v_min = (6.112*10^{(7.5*t_min_c)/(237.7 + t_min_c)} * rh_min_pct/100),
-         v_max = (6.112 * 10^{(7.5*t_max_c)/(237.7 + t_max_c)} * rh_max_pct/100),
-# calculate humidex
-         hx_min = t_min_c + ((v_min-10)*(5/9)),
-         hx_max = t_max_c + ((v_max-10)*(5/9)))
+The threshold value commonly used for human survivability is 35C wet bulb temperature.(Pal & Eltahir 2015 <https://www.nature.com/articles/nclimate2833>)
+Practically however, it is easier to collect dry air temperature and relative humidity data. Public health studies tend to use apparent temperature (AT), Humidex (HI), or heat index (HX) to calculate a "feels like" temperature proxy for mortality, as discussed in Sanderson et al.'s 2017 review of 63 studies on heat wave mortality.
 
-```
+The review was publishes in PLOS ONE, an open access journal with a relatively high impact factor. The article has been cited 17 times in the last three years. Assessment of reputability?? 
 
 
 
@@ -87,6 +67,51 @@ hx = t_air + (v-10) * (5/9)
 
 Both #2 and #3 equations are from https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0180369.s005&type=supplementary
 
+Because these equations are based on simple physical properties of temperature and humidity, we do not expect them to be subject to uncertainty or revision. As indices, the values calculated are expected to increase with climate change but the underlying relationships shouldn't change.
+
+***
+
+The data used for the climate model was taken from LOCA Downscaled CMIP5 Climate Projections, published by Scripps.
+This data has already been downscaled to provide daily climate projections for California at relatively fine spatial scale. For each model, the area of study was selected to be LA County, with projections from 2006-2099. We selected the RCP 4.5 projection scenario for all models as a "middle-of-the-road" estimate for climate adaptation efforts.
+
+The first climate model used is CNRM-CM5, which couples atmospheric, sea, land surface, and sea ice climate models into a single GCM. It was developed jointly by CNRM-GAME (Centre National de Recherches Météorologiques—Groupe d’études de l’Atmosphère Météorologique) and Cerfacs (Centre Européen de Recherche et de Formation Avancée) to be used for phase 5 of the Coupled Model Intercomparison Project (CMIP5). 
+
+The second climate model used is HadGEM2-ES, a coupled GCM published by the Met Office in the UK. The author of the literature review is also affiliated with the Met Office, so we thought it might be interesting to see how publications from the same office line up. HadGEM2 models couple atmosphere, ocean, and "earth system" components (no sea ice).
+
+The third climate model used is CanESM2, a Canadian GCM that couples atmosphere-ocean model CanCM4 with terrestrial carbon model (CTEM) and an ocean carbon model (CMOC).
+
+(These three were the only ones that contained RH data).
+
+
+```{r}
+raw_data <- read_csv("data_daily_CNRM-CM5_rcp45.csv")
+
+data <- raw_data %>%
+  rename(rh_max_pct = `relhumid-max_day_CNRM-CM5_rcp45`, # rename for ease 
+         rh_min_pct = `relhumid-min_day_CNRM-CM5_rcp45`,
+         t_max_k = `tasmax_day_CNRM-CM5_rcp45`,
+         t_min_k = `tasmin_day_CNRM-CM5_rcp45`) %>%
+# convert temps to celsius  
+  mutate(t_min_c = t_min_k-273, 
+         t_max_c = t_max_k-273,
+#calculate max and min dew point temperatures         
+         # t_d_min = t_min_c - (100 - (rh_min_pct/5)), 
+         # t_d_max = t_max_c - (100 - (rh_max_pct/5)),
+          t_d_min = 243.04*(log(rh_min_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_min_pct/100)-((17.625*T)/(243.04+T))),
+          t_d_max = 243.04*(log(rh_max_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_max_pct/100)-((17.625*T)/(243.04+T))),
+# calculate apparent temperatures
+         at_min = -2.653 + (0.994 * t_min_c) + (0.0153 * (t_d_min)^2), 
+         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2),
+# calculate vapor pressure of water in hPa
+         v_min = (6.112*10^{(7.5*t_min_c)/(237.7 + t_min_c)} * rh_min_pct/100),
+         v_max = (6.112 * 10^{(7.5*t_max_c)/(237.7 + t_max_c)} * rh_max_pct/100),
+# calculate humidex
+         hx_min = t_min_c + ((v_min-10)*(5/9)),
+         hx_max = t_max_c + ((v_max-10)*(5/9)))
+
+```
+
+ 
 
 ```{r}
 # Find the number of days per year where humidex is over 45
