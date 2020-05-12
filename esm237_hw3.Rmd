@@ -7,10 +7,7 @@ output: html_document
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE)
-```
 
-
-```{r}
 library(tidyverse)
 library(here)
 library(janitor)
@@ -19,14 +16,14 @@ library(chron)
 library(stringr)
 ```
 
-Humans have evolved adaptive mechanisms that allow us to conditions of extreme heat. Sweat, for example, absorbs heat energy and evaporates from our skin, creating a cooling feedback effect. However, at a certain temperature and/or humidity level - when it becomes too humid to effectively sweat - even the fittest human body will succumb to heat stress.  The implications of rising global average temperatures for mortality, as a function of temperature and humidity, are troubling. Even if temperatures in a location do not significantly increase, already-hot countries may experience dangerous increases in humidity, since models predict that Hadley cells will broaden and shift storms poleward??
+Humans have evolved adaptive mechanisms that allow us to conditions of extreme heat. Sweat, for example, absorbs heat energy and evaporates from our skin, creating a cooling feedback effect. However, at a certain temperature and/or humidity level - when it becomes too humid to effectively sweat - even the fittest human body will succumb to heat stress.  The implications of rising global average temperatures for mortality, as a function of temperature and humidity, are troubling. Even if temperatures in a location do not significantly increase, already-hot countries may experience dangerous increases in humidity, since models predict that Hadley cells will broaden and shift storms poleward*??*
 
 This system further merits attention as a matter of environmental justice. On a global scale, the countries most at risk of increasing extreme heat-based mortality are developing nations without the resources or infrastructure to develop adaptive measures. (There is also the unfortunate paradox that cooling technology is energy-intensive and often relies on fossil fuels, further contributing to GHG emissions and exacerbating the root cause of rising temperatures.) On a more local scale, individuals most at risk are those who perform strenuous activities, work outdoors, cannot afford air conditioning, are homeless, etc.
 
-The threshold value commonly used for human survivability is 35C wet bulb temperature.(Pal & Eltahir 2015 <https://www.nature.com/articles/nclimate2833>)
+The threshold value commonly used for human survivability is 35°C wet bulb temperature.(Pal & Eltahir 2015 <https://www.nature.com/articles/nclimate2833>)
 Practically however, it is easier to collect dry air temperature and relative humidity data. Public health studies tend to use apparent temperature (AT), Humidex (HI), or heat index (HX) to calculate a "feels like" temperature proxy for mortality, as discussed in Sanderson et al.'s 2017 review of 63 studies on heat wave mortality.
 
-The review was publishes in PLOS ONE, an open access journal with a relatively high impact factor. The article has been cited 17 times in the last three years. Assessment of reputability?? 
+The review was published in PLOS ONE, an open access journal with a relatively high impact factor. The article has been cited 17 times in the last three years. *Assessment of reputability??* 
 
 
 
@@ -43,12 +40,27 @@ Variables derived:
 Using the formula from http://bmcnoldy.rsmas.miami.edu/Humidity.html:
 TD: =243.04*(LN(RH/100)+((17.625*T)/(243.04+T)))/(17.625-LN(RH/100)-((17.625*T)/(243.04+T)))
 
+```{r}
+dew_point <- function(T, rh){
+  dp <- 243.04 * (log(rh / 100) + ((17.625 * T) / (243.04 + T))) / (17.625 - log(rh / 100)-((17.625 * T) / (243.04 + T)))
+  return(dp)
+}
+```
+
+
 Reference:
 Alduchov, O. A., and R. E. Eskridge, 1996: Improved Magnus' form approximation of saturation vapor pressure. J. Appl. Meteor., 35, 601–609.
 
 
 2. Apparent temperature (at)
 at = -2.653 + (0.994 * t_air) + (0.0153 * (t_d)^2)
+
+```{r}
+app_temp <- function(t_air, t_d){
+  at <- -2.653 + (0.994 * t_air) + (0.0153 * (t_d)^2)
+  return(at)
+}
+```
 
 
 3. Humidex (hx)
@@ -57,12 +69,41 @@ at = -2.653 + (0.994 * t_air) + (0.0153 * (t_d)^2)
 
 v = (6.112 × 10ˆ(7.5 * t_air/(237.7 + t_air)) * rh/100) 
 
+```{r}
+vp_h2o <- function(t_air, RH){
+  v <-  (6.112 * 10^(7.5 * t_air / (237.7 + t_air)) * RH/100)
+  return(v)
+}
+```
+
+
 3.b. humidex
 hx = t_air + (v-10) * (5/9)
 
+```{r}
+hx <- function(t_air, v){
+  hx <- t_air + (v - 10) * (5/9)
+  return(hx)
+}
+```
 
 
-"A Humidex of less than 29 means no discomfort; 30 to 39 some discomfort; 40 to 45 great discomfort and avoid exertion; and above 45 is dangerous, heat stroke is possible." 
+
+"A Humidex of less than 29 means no discomfort; 30 to 39 some discomfort; 40 to 45 great discomfort and avoid exertion; and above 45 is dangerous, heat stroke is possible."
+
+```{r}
+hx_desc <- function(t_air, v){
+  hx <- t_air + (v - 10) * (5/9)
+  hx_desc <- case_when(
+    hx < 29 ~ "no discomfort",
+    hx < 39 ~ "some discomfort",
+    hx < 45 ~ "great discomfort and avoid exertion",
+    hx >= 45 ~ "dangerous, heat stroke is possible",
+  )
+  return(hx_desc)
+}
+```
+
 
 
 Both #2 and #3 equations are from https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0180369.s005&type=supplementary
@@ -91,27 +132,30 @@ data <- raw_data %>%
          rh_min_pct = `relhumid-min_day_CNRM-CM5_rcp45`,
          t_max_k = `tasmax_day_CNRM-CM5_rcp45`,
          t_min_k = `tasmin_day_CNRM-CM5_rcp45`) %>%
-# convert temps to celsius  
+  # convert temps to celsius  
   mutate(t_min_c = t_min_k-273, 
          t_max_c = t_max_k-273,
-#calculate max and min dew point temperatures         
+         #calculate max and min dew point temperatures         
          # t_d_min = t_min_c - (100 - (rh_min_pct/5)), 
          # t_d_max = t_max_c - (100 - (rh_max_pct/5)),
-          t_d_min = 243.04*(log(rh_min_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_min_pct/100)-((17.625*T)/(243.04+T))),
-          t_d_max = 243.04*(log(rh_max_pct/100)+((17.625*T)/(243.04+T)))/(17.625-log(rh_max_pct/100)-((17.625*T)/(243.04+T))),
-# calculate apparent temperatures
-         at_min = -2.653 + (0.994 * t_min_c) + (0.0153 * (t_d_min)^2), 
-         at_max = -2.653 + (0.994 * t_max_c) + (0.0153 * (t_d_max)^2),
-# calculate vapor pressure of water in hPa
-         v_min = (6.112*10^{(7.5*t_min_c)/(237.7 + t_min_c)} * rh_min_pct/100),
-         v_max = (6.112 * 10^{(7.5*t_max_c)/(237.7 + t_max_c)} * rh_max_pct/100),
-# calculate humidex
-         hx_min = t_min_c + ((v_min-10)*(5/9)),
-         hx_max = t_max_c + ((v_max-10)*(5/9)))
+         t_d_min = dew_point(T, rh_min_pct),
+         t_d_max = dew_point(T, rh_max_pct),
+         # calculate apparent temperatures
+         at_min = app_temp(t_min_c, t_d_min), 
+         at_max = app_temp(t_max_c, t_d_max),
+         # calculate vapor pressure of water in hPa
+         v_min = vp_h2o(t_min_c, rh_min_pct),
+         v_max = vp_h2o(t_max_c, rh_max_pct),
+         # calculate humidex
+         hx_min = hx(t_min_c, v_min),
+         hx_max = hx(t_max_c, v_max),
+         # assign humidex description
+         hx_min_desc = hx_desc(t_min_c, v_min),
+         hx_max_desc = hx_desc(t_max_c, v_max))
 
 ```
 
- 
+
 
 ```{r}
 # Find the number of days per year where humidex is over 45
@@ -128,13 +172,15 @@ hx_45_count <- hx_45 %>%
 
 ggplot(hx_45_count, 
        aes(x = year,
-       y = n)) +
-  geom_point(color = "orangered") +
+           y = n)) +
+  geom_point(color = "orangered3") +
   geom_smooth(method = "lm",
               color = "darkolivegreen") +
-  labs(x = "Year (from 2006-2100)",
-       y = "Number of days per year where humidex is over 45",
-       title = "Projeted annual extreme humidex days in Los Angeles") +
+  labs(x = "Year",
+       y = "Days per year",
+       title = "Projected annual days in the extreme humidex range",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "Extreme humidex days are days with a humidex greater than 45.\n\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
   theme_light()+
   theme(legend.position = "none",
         text=element_text(size= 12,
@@ -142,18 +188,19 @@ ggplot(hx_45_count,
   theme(plot.title = element_text(
     family ="Times", 
     face="bold", 
-    size=12))
+    size=12),
+    plot.caption = element_text(hjust = 0, face = "italic"))
 
 res_hx_45 = lm(n~year,
-         data = hx_45_count)
+               data = hx_45_count)
 summary_hx_45 = summary(hx_45_count)
 confidence_hx_45 = confint(res_hx_45, 
-        "year",
-        level = 0.95)
+                           "year",
+                           level = 0.95)
 res_hx_45
 summary_hx_45
 confidence_hx_45
-  
+
 ```
 
 ```{r}
@@ -172,13 +219,15 @@ hx_40_count <- hx_40 %>%
 
 ggplot(hx_40_count, 
        aes(x = year,
-       y = n)) +
-  geom_point(color = "orange") +
+           y = n)) +
+  geom_point(color = "orangered") +
   geom_smooth(method = "lm",
               color = "darkolivegreen") +
-  labs(x = "Year (from 2006-2100)",
-       y = "Number of days per year where humidex is between 40 and 45",
-       title = "Projeted annual humidex days within the great discomfort range in Los Angeles") +
+  labs(x = "Year",
+       y = "Days per year",
+       title = "Projected annual days within the humidex great discomfort range",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "The great discomfort range is between 40 and 45.\n\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
   theme_light()+
   theme(legend.position = "none",
         text=element_text(size= 12,
@@ -186,18 +235,19 @@ ggplot(hx_40_count,
   theme(plot.title = element_text(
     family ="Times", 
     face="bold", 
-    size=12))
+    size=12),
+    plot.caption = element_text(hjust = 0, face = "italic"))
 
 res_hx_40 = lm(n~year,
-         data = hx_40_count)
+               data = hx_40_count)
 summary_hx_40 = summary(hx_40_count)
 confidence_hx_40 = confint(res_hx_40, 
-        "year",
-        level = 0.95)
+                           "year",
+                           level = 0.95)
 res_hx_40
 summary_hx_40
 confidence_hx_40
-  
+
 ```
 ```{r}
 # Find the number of days per year where humidex is between 40-45
@@ -215,13 +265,15 @@ hx_30_count <- hx_30 %>%
 
 ggplot(hx_30_count, 
        aes(x = year,
-       y = n)) +
+           y = n)) +
   geom_point(color = "orange") +
   geom_smooth(method = "lm",
               color = "darkolivegreen") +
-  labs(x = "Year (from 2006-2100)",
-       y = "Number of days per year where humidex is between 30 and 39",
-       title = "Projeted annual humidex days within the discomfort range in Los Angeles") +
+  labs(x = "Year",
+       y = "Days per year",
+       title = "Projected annual days within the humidex discomfort range",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "The discomfort range is between 30 and 39.\n\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
   theme_light()+
   theme(legend.position = "none",
         text=element_text(size= 12,
@@ -229,50 +281,113 @@ ggplot(hx_30_count,
   theme(plot.title = element_text(
     family ="Times", 
     face="bold", 
-    size=12))
+    size=12),
+    plot.caption = element_text(hjust = 0, face = "italic"))
 
 res_hx_40 = lm(n~year,
-         data = hx_40_count)
+               data = hx_40_count)
 summary_hx_40 = summary(hx_40_count)
 confidence_hx_40 = confint(res_hx_40, 
-        "year",
-        level = 0.95)
+                           "year",
+                           level = 0.95)
 res_hx_40
 summary_hx_40
 confidence_hx_40
-  
+
 ```
 
 
 ```{r}
-# Graph change in  max annual humidex over time
-# 
-# hx <- data %>%
-#   select(time, hx_max) %>%
-#   group_by(year(time()), hx_max) %>%
-#  filter(hx_max == max(hx_max)) %>%
-#   ungroup()
-# 
-# ggplot(hx,
-#        aes(x = time,
-#        y = hx_max)) +
-#   geom_point(color = "orange") +
-#   geom_smooth(method = "lm",
-#               color = "darkolivegreen") +
-#   labs(x = "Year (from 2006-2100)",
-#        y = "Number of days per year where humidex is between 30 and 39",
-#        title = "Projeted annual humidex days within the discomfort range in Los Angeles") +
-#   theme_light()+
-#   theme(legend.position = "none",
-#         text=element_text(size= 12,
-#                           family = "Times"))+
-#   theme(plot.title = element_text(
-#     family ="Times",
-#     face="bold",
-#     size=12))
-# 
-# 
+# Graph change in max annual humidex over time
+
+hx <- data %>%
+  select(time, hx_max) %>%
+  group_by(year(time), hx_max) %>%
+  filter(hx_max == max(hx_max)) %>%
+  ungroup()
+
+ggplot(hx,
+       aes(x = time,
+       y = hx_max)) +
+  geom_point(color = "orange",
+             alpha = 0.5) +
+  geom_smooth(method = "lm",
+              color = "darkolivegreen") +
+  labs(x = "Year",
+       y = "Max annual humidex",
+       title = "Projected maximum annual humidex",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
+  theme_light()+
+  theme(legend.position = "none",
+        text=element_text(size= 12,
+                          family = "Times"))+
+  theme(plot.title = element_text(
+    family ="Times",
+    face="bold",
+    size=12),
+    plot.caption = element_text(hjust = 0, face = "italic"))
 
 ```
 
+
+```{r}
+hx_comp <- hx_30_count %>% 
+  rename(hx_30_ct = n) %>%
+  full_join(hx_40_count) %>%
+  rename(hx_40_ct = n) %>%
+  full_join(hx_45_count) %>%
+  rename(hx_45_ct = n) %>%
+  mutate(total = hx_30_ct + hx_40_ct + hx_45_ct,
+         non_hx = 365 - total,
+         hx_40_pct = (hx_40_ct / 365) * 100,
+         hx_45_pct = (hx_45_ct / 365) * 100,
+         hx_30_pct = (hx_30_ct / 365) * 100,
+         anon_hx_pct = (non_hx / 365) * 100)
+
+hx_comp_pct <- hx_comp %>%
+  select(year,
+         hx_45_pct,
+         hx_40_pct,
+         hx_30_pct,
+         anon_hx_pct) %>%
+  pivot_longer(-year,
+               names_to = "type",
+               values_to = "pct")
+
+
+ggplot(hx_comp_pct,
+       aes(y = pct,
+           x = year,
+           fill = type)) + 
+  geom_bar(position = "fill",
+           stat = "identity",
+           width = 1) +
+  scale_fill_manual(values = c("grey50", "orange", "orangered", "orangered4"),
+                    name="Humidex Category",
+                    labels=c("No Discomfort", "Discomfort", "Great Discomfort", "Extreme")) +
+  labs(x = "Year",
+       y = "Percent of days",
+       title = "Projected percent of days per year by humidex category",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "\nNo Discomfort: less than 30°C.\nDiscomfort: between 30 and 39°C.\nGreat Discomfort: between 40 and 45°C.\nExtreme: above 45°C.\n\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
+  theme_light()+
+  theme(legend.position = c(.8, -0.35),
+        text=element_text(size= 12,
+                          family = "Times")) +
+  theme(plot.title = element_text(
+    family = "Times",
+    face = "bold",
+    size = 12),
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    legend.title = element_text(size=10)) +
+  scale_x_continuous(expand = c(0,1)) +
+  scale_y_continuous(expand = c(0,0),
+                     labels = c("0" = "0",
+                                "0.25" = "25",
+                                "0.5" = "50",
+                                "0.75" = "75",
+                                "1.00" = "100"))
+
+```
 
