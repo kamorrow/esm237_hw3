@@ -10,10 +10,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = FA
 
 library(tidyverse)
 library(here)
-library(janitor)
 library(lubridate)
-library(chron)
-library(stringr)
 ```
 
 Humans have evolved adaptive mechanisms that allow us to conditions of extreme heat. Sweat, for example, absorbs heat energy and evaporates from our skin, creating a cooling feedback effect. However, at a certain temperature and/or humidity level - when it becomes too humid to effectively sweat - even the fittest human body will succumb to heat stress.  The implications of rising global average temperatures for mortality, as a function of temperature and humidity, are troubling. Even if temperatures in a location do not significantly increase, already-hot countries may experience dangerous increases in humidity, since models predict that Hadley cells will broaden and shift storms poleward*??*
@@ -162,13 +159,13 @@ data <- raw_data %>%
 
 hx_45 <- data %>%
   select(time, hx_max) %>%
-  group_by(year(time)) %>%
+  mutate(year = year(time)) %>% 
+  group_by(year) %>%
   filter(hx_max > 45) 
 
 hx_45_count <- hx_45 %>%
   count() %>%
-  ungroup() %>%
-  rename(year = "year(time)")
+  ungroup()
 
 ggplot(hx_45_count, 
        aes(x = year,
@@ -446,8 +443,10 @@ data_files <- c("CanESM2_rcp45",
 
 for(i in seq_along(data_files)){
   
+  # Read in Data
   raw_data <- read_csv(here::here("data", paste("data_daily_", data_files[i], ".csv", sep = "")))
   
+  # Calculations
   data <- raw_data %>%
     rename(rh_max_pct = paste("relhumid-max_day_", data_files[i], sep = ""), # rename for ease 
            rh_min_pct = paste("relhumid-min_day_", data_files[i], sep = ""),
@@ -713,8 +712,6 @@ for(i in seq_along(data_files)){
   
   ggsave(here::here("figures", paste(data_files[i], "_pct-yr-hx.png", sep = "")),
          height = 6, width = 7)
-  
 }
 
 ```
-
