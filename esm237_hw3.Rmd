@@ -250,7 +250,6 @@ confidence_hx_40
 
 ```
 ```{r}
-# Find the number of days per year where humidex is between 40-45
 # Find the number of days per year where humidex is between 30-39
 
 hx_30 <- data %>%
