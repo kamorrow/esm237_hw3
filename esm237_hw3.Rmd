@@ -251,6 +251,7 @@ confidence_hx_40
 ```
 ```{r}
 # Find the number of days per year where humidex is between 40-45
+# Find the number of days per year where humidex is between 30-39
 
 hx_30 <- data %>%
   select(time, hx_max) %>%
@@ -388,6 +389,49 @@ ggplot(hx_comp_pct,
                                 "0.5" = "50",
                                 "0.75" = "75",
                                 "1.00" = "100"))
+
+```
+
+***
+
+"Apparent temperatures greater than 80F are generally associated with some discomfort. Values approaching or exceeding 105F are considered life-threatening, with severe heat exhaustion or heatstroke possible if exposure is prolonged or physical activity high. The degree of heat stress may vary with age, health, and body characteristics." 
+https://climate.virginia.edu/apparent.htm
+
+```{r}
+# Find the number of days per year where Apparent Temp is over 105F/40C
+
+at_40 <- data %>%
+  select(time, at_max, at_min)
+
+at_26 <- data %>%
+  select(time, at_max) %>% 
+  group_by(year(time)) %>%
+  filter(at_max > 26) 
+
+at_26_count <- at_26 %>%
+  count() %>%
+  ungroup() %>%
+  rename(year = "year(time)")
+
+ggplot(data = at_40) +
+  geom_point(aes(x=year(time), y=at_max), color="orangered3") +
+  geom_smooth(aes(x=year(time), y=at_max),method = "lm", color = "darkolivegreen") +
+  geom_point(aes(x=year(time), y=at_min), color="orange") +
+  geom_smooth(aes(x=year(time), y=at_min),method = "lm", color = "darkolivegreen") +
+  labs(x = "Year",
+       y = "Days per year",
+       title = "Projected AT",
+       subtitle = "Los Angeles, 2006 to 2100",
+       caption = "Apparent Temperature.\n\nESM 237 Spring 2020\nKeene Morrow, Madeline Oliver, & Minerva Ringland") +
+  theme_light()+
+  theme(legend.position = "none",
+        text=element_text(size= 12,
+                          family = "Times"))+
+  theme(plot.title = element_text(
+    family ="Times", 
+    face="bold", 
+    size=12),
+    plot.caption = element_text(hjust = 0, face = "italic"))
 
 ```
 
